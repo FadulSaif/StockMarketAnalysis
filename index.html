@@ -1,0 +1,156 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo">📈 Stock Analyzer</h1>
+            <div class="search-container">
+                <input type="text" id="stockSearch" class="search-input" placeholder="Search stocks (e.g., AAPL, GOOGL, TSLA)">
+                <button id="searchBtn" class="search-btn">Search</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Stock Info Panel -->
+            <section class="stock-info" id="stockInfo" style="display: none;">
+                <div class="stock-header">
+                    <h2 id="stockName">-</h2>
+                    <span id="stockSymbol" class="stock-symbol">-</span>
+                </div>
+                <div class="stock-price">
+                    <span id="currentPrice" class="current-price">$0.00</span>
+                    <span id="priceChange" class="price-change">+$0.00 (0.00%)</span>
+                </div>
+            </section>
+
+            <!-- Charts Container -->
+            <section class="charts-section">
+                <div class="chart-controls">
+                    <div class="chart-type-selector">
+                        <button id="lineChartBtn" class="chart-btn active">Line Chart</button>
+                        <button id="candlestickBtn" class="chart-btn">Candlestick</button>
+                    </div>
+                    <div class="timeframe-selector">
+                        <button class="timeframe-btn active" data-period="30">1M</button>
+                        <button class="timeframe-btn" data-period="90">3M</button>
+                        <button class="timeframe-btn" data-period="180">6M</button>
+                        <button class="timeframe-btn" data-period="365">1Y</button>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="mainChart"></canvas>
+                </div>
+                
+                <div class="volume-chart-container">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Technical Indicators -->
+            <section class="indicators-section">
+                <h3>Technical Indicators</h3>
+                <div class="indicators-grid">
+                    <div class="indicator-card">
+                        <h4>Moving Averages</h4>
+                        <div class="indicator-controls">
+                            <label>
+                                <input type="checkbox" id="sma20" checked> SMA 20
+                                <span class="indicator-value" id="sma20Value">-</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="sma50"> SMA 50
+                                <span class="indicator-value" id="sma50Value">-</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="ema12"> EMA 12
+                                <span class="indicator-value" id="ema12Value">-</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="indicator-card">
+                        <h4>RSI (14)</h4>
+                        <div class="rsi-display">
+                            <div class="rsi-gauge">
+                                <div class="rsi-bar" id="rsiBar"></div>
+                                <span class="rsi-value" id="rsiValue">-</span>
+                            </div>
+                            <div class="rsi-labels">
+                                <span>Oversold (30)</span>
+                                <span>Overbought (70)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="indicator-card">
+                        <h4>MACD</h4>
+                        <div class="macd-display">
+                            <div class="macd-values">
+                                <span>MACD: <span id="macdValue">-</span></span>
+                                <span>Signal: <span id="macdSignal">-</span></span>
+                                <span>Histogram: <span id="macdHistogram">-</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Prediction Section -->
+            <section class="prediction-section">
+                <h3>Price Prediction</h3>
+                <div class="prediction-card">
+                    <div class="prediction-info">
+                        <h4>Linear Regression Forecast</h4>
+                        <p>Based on last 30 days of closing prices</p>
+                    </div>
+                    <div class="prediction-values">
+                        <div class="prediction-item">
+                            <span class="prediction-label">Next Day:</span>
+                            <span class="prediction-value" id="nextDayPrediction">$0.00</span>
+                        </div>
+                        <div class="prediction-item">
+                            <span class="prediction-label">Next Week:</span>
+                            <span class="prediction-value" id="nextWeekPrediction">$0.00</span>
+                        </div>
+                        <div class="prediction-item">
+                            <span class="prediction-label">Trend:</span>
+                            <span class="prediction-trend" id="trendDirection">Neutral</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Error Modal -->
+        <div id="errorModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3>Error</h3>
+                <p id="errorMessage">Something went wrong.</p>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading stock data...</p>
+        </div>
+    </div>
+
+    <script src="json.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
