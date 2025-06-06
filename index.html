@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -38,9 +38,22 @@
             <!-- Charts Container -->
             <section class="charts-section">
                 <div class="chart-controls">
-                    <div class="chart-type-selector">
-                        <button id="lineChartBtn" class="chart-btn active">Line Chart</button>
-                        <button id="candlestickBtn" class="chart-btn">Candlestick</button>
+                    <div class="annotation-tools">
+                        <button id="horizontalLineBtn" class="tool-btn" title="Add Horizontal Line">
+                            <span>─</span>
+                        </button>
+                        <button id="verticalLineBtn" class="tool-btn" title="Add Vertical Line">
+                            <span>│</span>
+                        </button>
+                        <button id="drawLineBtn" class="tool-btn" title="Draw Line">
+                            <span>✎</span>
+                        </button>
+                        <button id="markerBtn" class="tool-btn" title="Add Marker">
+                            <span>●</span>
+                        </button>
+                        <button id="clearAnnotationsBtn" class="tool-btn" title="Clear All Annotations">
+                            <span>✕</span>
+                        </button>
                     </div>
                     <div class="timeframe-selector">
                         <button class="timeframe-btn active" data-period="30">1M</button>

@@ -125,14 +125,14 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         initializeEventListeners();
         setupChartDefaults();
+        initializeAnnotationTools();
         
-        // Validate that stock data is loaded
         if (!window.stockData || typeof window.stockData !== 'object') {
             ErrorHandler.showError('Stock data failed to load. Please refresh the page.');
             return;
         }
         
-        ErrorHandler.showSuccess('Application loaded successfully');
+        // ErrorHandler.showSuccess('Application loaded successfully');
     } catch (error) {
         ErrorHandler.showError(`Failed to initialize application: ${error.message}`);
     }
@@ -143,14 +143,12 @@ function initializeEventListeners() {
     try {
         const searchBtn = document.getElementById('searchBtn');
         const searchInput = document.getElementById('stockSearch');
-        const lineChartBtn = document.getElementById('lineChartBtn');
-        const candlestickBtn = document.getElementById('candlestickBtn');
         const timeframeBtns = document.querySelectorAll('.timeframe-btn');
         const indicatorCheckboxes = document.querySelectorAll('.indicator-controls input[type="checkbox"]');
         const errorModal = document.getElementById('errorModal');
         const closeModal = document.querySelector('.close');
 
-        if (!searchBtn || !searchInput || !lineChartBtn || !candlestickBtn || !errorModal || !closeModal) {
+        if (!searchBtn || !searchInput || !errorModal || !closeModal) {
             throw new Error('Required DOM elements not found');
         }
 
@@ -161,10 +159,6 @@ function initializeEventListeners() {
                 handleSearch();
             }
         });
-
-        // Chart type selection
-        lineChartBtn.addEventListener('click', () => selectChartType('line'));
-        candlestickBtn.addEventListener('click', () => selectChartType('candlestick'));
 
         // Timeframe selection
         timeframeBtns.forEach(btn => {
@@ -256,7 +250,7 @@ function handleSearch() {
                 if (stock) {
                     ErrorHandler.validateStockData(stock);
                     displayStock(stock);
-                    ErrorHandler.showSuccess(`Successfully loaded data for ${stock.name}`);
+                    // ErrorHandler.showSuccess(`Successfully loaded data for ${stock.name}`);
                 } else {
                     const availableStocks = Object.keys(window.stockData || {}).join(', ');
                     ErrorHandler.showError(`Stock symbol "${validatedSymbol}" not found. Available stocks: ${availableStocks}`);
@@ -360,18 +354,45 @@ function displayStock(stock) {
 }
 
 // Get filtered historical data based on selected period
-function getFilteredData(data, days) {
+function getFilteredData(data, period) {
     try {
         if (!Array.isArray(data)) {
             throw new Error('Data must be an array');
         }
-        
-        if (days <= 0) {
-            throw new Error('Days must be positive');
+        if (period <= 0) {
+            throw new Error('Period must be positive');
         }
-        
-        const sortedData = data.sort((a, b) => new Date(a.date) - new Date(b.date));
-        return sortedData.slice(-days);
+        const sortedData = data.slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (sortedData.length === 0) return [];
+        const endDate = new Date(sortedData[sortedData.length - 1].date);
+        let startDate;
+        if (period === 365) {
+            // 1 year
+            startDate = new Date(endDate);
+            startDate.setFullYear(endDate.getFullYear() - 1);
+        } else if (period === 180) {
+            // 6 months
+            startDate = new Date(endDate);
+            startDate.setMonth(endDate.getMonth() - 6);
+        } else if (period === 90) {
+            // 3 months
+            startDate = new Date(endDate);
+            startDate.setMonth(endDate.getMonth() - 3);
+        } else if (period === 30) {
+            // 1 month
+            startDate = new Date(endDate);
+            startDate.setMonth(endDate.getMonth() - 1);
+        } else {
+            // fallback: last N points
+            return sortedData.slice(-period);
+        }
+        // Set startDate to the first day of the month for clarity
+        startDate.setDate(1);
+        // Filter data inclusively from startDate to endDate
+        return sortedData.filter(d => {
+            const dDate = new Date(d.date);
+            return dDate >= startDate && dDate <= endDate;
+        });
     } catch (error) {
         console.error('Error filtering data:', error);
         return [];
@@ -855,28 +876,21 @@ function linearRegression(x, y) {
 // Update price prediction
 function updatePrediction() {
     if (!currentStock) return;
-    
     try {
-        const filteredData = getFilteredData(currentStock.historicalData, 30); // Use last 30 days
+        const filteredData = getFilteredData(currentStock.historicalData, currentPeriod); // Use selected period
         if (filteredData.length < 10) {
             throw new Error('Insufficient data for prediction (minimum 10 days required)');
         }
-        
         const prices = filteredData.map(d => d.close);
         const x = prices.map((_, i) => i);
-        
         const { slope, intercept } = linearRegression(x, prices);
-        
         // Predict next day and next week
         const nextDay = slope * prices.length + intercept;
         const nextWeek = slope * (prices.length + 7) + intercept;
-        
         const nextDayEl = document.getElementById('nextDayPrediction');
         const nextWeekEl = document.getElementById('nextWeekPrediction');
-        
         if (nextDayEl) nextDayEl.textContent = `$${Math.max(0, nextDay).toFixed(2)}`;
         if (nextWeekEl) nextWeekEl.textContent = `$${Math.max(0, nextWeek).toFixed(2)}`;
-        
         // Determine trend
         const trendElement = document.getElementById('trendDirection');
         if (trendElement) {
@@ -893,42 +907,16 @@ function updatePrediction() {
         }
     } catch (error) {
         ErrorHandler.showError(`Failed to update prediction: ${error.message}`);
-        
         // Set default values on error
         const nextDayEl = document.getElementById('nextDayPrediction');
         const nextWeekEl = document.getElementById('nextWeekPrediction');
         const trendElement = document.getElementById('trendDirection');
-        
         if (nextDayEl) nextDayEl.textContent = '$0.00';
         if (nextWeekEl) nextWeekEl.textContent = '$0.00';
         if (trendElement) {
             trendElement.textContent = 'Unknown';
             trendElement.className = 'prediction-trend';
         }
-    }
-}
-
-// Chart type selection
-function selectChartType(type) {
-    try {
-        if (!['line', 'candlestick'].includes(type)) {
-            throw new Error('Invalid chart type');
-        }
-        
-        currentChartType = type;
-        
-        // Update button states
-        const lineBtn = document.getElementById('lineChartBtn');
-        const candlestickBtn = document.getElementById('candlestickBtn');
-        
-        if (lineBtn) lineBtn.classList.toggle('active', type === 'line');
-        if (candlestickBtn) candlestickBtn.classList.toggle('active', type === 'candlestick');
-        
-        if (currentStock) {
-            updateChart();
-        }
-    } catch (error) {
-        ErrorHandler.showError(`Failed to select chart type: ${error.message}`);
     }
 }
 
@@ -978,3 +966,307 @@ window.StockAnalyzer = {
 };
 
 console.log('Stock Analysis Dashboard script loaded successfully');
+
+// Chart configuration and data processing
+function createChartConfig(data) {
+    const chartData = {
+        datasets: [{
+            type: 'candlestick',
+            label: 'Price',
+            data: data.map(d => ({
+                x: new Date(d.date),
+                o: d.open,
+                h: d.high,
+                l: d.low,
+                c: d.close
+            })),
+            color: {
+                up: '#4ade80',
+                down: '#f87171',
+                unchanged: '#60a5fa'
+            },
+            borderColor: {
+                up: '#4ade80',
+                down: '#f87171',
+                unchanged: '#60a5fa'
+            },
+            borderWidth: 1
+        }]
+    };
+
+    const config = {
+        type: 'candlestick',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                zoom: {
+                    pan: {
+                        enabled: true,
+                        mode: 'x'
+                    },
+                    zoom: {
+                        wheel: {
+                            enabled: true
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        mode: 'x'
+                    }
+                },
+                annotation: {
+                    annotations: {}
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const point = context.raw;
+                            return [
+                                `Open: $${point.o.toFixed(2)}`,
+                                `High: $${point.h.toFixed(2)}`,
+                                `Low: $${point.l.toFixed(2)}`,
+                                `Close: $${point.c.toFixed(2)}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'day'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                y: {
+                    position: 'right',
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            }
+        }
+    };
+
+    return config;
+}
+
+// Annotation handling
+let activeAnnotationTool = null;
+let annotations = {};
+
+function initializeAnnotationTools() {
+    const horizontalLineBtn = document.getElementById('horizontalLineBtn');
+    const verticalLineBtn = document.getElementById('verticalLineBtn');
+    const drawLineBtn = document.getElementById('drawLineBtn');
+    const markerBtn = document.getElementById('markerBtn');
+    const clearAnnotationsBtn = document.getElementById('clearAnnotationsBtn');
+    horizontalLineBtn.addEventListener('click', () => toggleAnnotationTool('horizontal'));
+    verticalLineBtn.addEventListener('click', () => toggleAnnotationTool('vertical'));
+    if (drawLineBtn) drawLineBtn.addEventListener('click', () => toggleAnnotationTool('draw'));
+    if (markerBtn) markerBtn.addEventListener('click', () => toggleAnnotationTool('marker'));
+    clearAnnotationsBtn.addEventListener('click', clearAllAnnotations);
+    // Add mouse event handlers for freeform drawing
+    const chartContainer = document.querySelector('.chart-container');
+    chartContainer.addEventListener('mousedown', handleChartMouseDown);
+    chartContainer.addEventListener('mouseup', handleChartMouseUp);
+    chartContainer.addEventListener('mousemove', handleChartMouseMove);
+    chartContainer.addEventListener('click', handleChartClick);
+}
+
+function toggleAnnotationTool(tool) {
+    const buttons = document.querySelectorAll('.tool-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (activeAnnotationTool === tool) {
+        activeAnnotationTool = null;
+    } else {
+        activeAnnotationTool = tool;
+        document.getElementById(`${tool}LineBtn`).classList.add('active');
+    }
+}
+
+function handleChartClick(event) {
+    if (!activeAnnotationTool || !currentChart) return;
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const xValue = currentChart.scales.x.getValueForPixel(x);
+    const yValue = currentChart.scales.y.getValueForPixel(y);
+    if (activeAnnotationTool === 'horizontal') {
+        addHorizontalLine(yValue);
+    } else if (activeAnnotationTool === 'vertical') {
+        addVerticalLine(xValue);
+    } else if (activeAnnotationTool === 'marker') {
+        addMarker(xValue, yValue);
+    }
+}
+
+function addHorizontalLine(value) {
+    const id = `hline-${Date.now()}`;
+    annotations[id] = {
+        type: 'line',
+        yMin: value,
+        yMax: value,
+        borderColor: '#60a5fa',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        label: {
+            content: `$${value.toFixed(2)}`,
+            enabled: true,
+            position: 'start'
+        }
+    };
+    updateAnnotations();
+}
+
+function addVerticalLine(value) {
+    const id = `vline-${Date.now()}`;
+    annotations[id] = {
+        type: 'line',
+        xMin: value,
+        xMax: value,
+        borderColor: '#60a5fa',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        label: {
+            content: new Date(value).toLocaleDateString(),
+            enabled: true,
+            position: 'start'
+        }
+    };
+    updateAnnotations();
+}
+
+function addMarker(x, y) {
+    const id = `marker-${Date.now()}`;
+    const label = prompt('Enter marker label (e.g., Buy, Sell, Note):', '');
+    annotations[id] = {
+        type: 'point',
+        xValue: x,
+        yValue: y,
+        backgroundColor: '#f87171',
+        radius: 6,
+        label: {
+            content: label || '●',
+            enabled: true,
+            position: 'center',
+            color: '#fff',
+            backgroundColor: '#1e40af',
+            font: { weight: 'bold' }
+        }
+    };
+    updateAnnotations();
+}
+
+function clearAllAnnotations() {
+    annotations = {};
+    updateAnnotations();
+}
+
+function updateAnnotations() {
+    if (currentChart) {
+        currentChart.options.plugins.annotation.annotations = annotations;
+        currentChart.update();
+    }
+}
+
+// Enhanced prediction with technical indicators
+function calculatePrediction(data) {
+    const prices = data.map(d => d.close);
+    const rsi = calculateRSI(prices);
+    const sma20 = calculateSMA(prices, 20);
+    const sma50 = calculateSMA(prices, 50);
+    
+    const lastPrice = prices[prices.length - 1];
+    const lastRSI = rsi[rsi.length - 1];
+    const lastSMA20 = sma20[sma20.length - 1];
+    const lastSMA50 = sma50[sma50.length - 1];
+    
+    // Calculate trend strength
+    let trendStrength = 0;
+    
+    // RSI contribution
+    if (lastRSI > 70) trendStrength -= 2;
+    else if (lastRSI < 30) trendStrength += 2;
+    
+    // Moving average contribution
+    if (lastSMA20 > lastSMA50) trendStrength += 1;
+    else if (lastSMA20 < lastSMA50) trendStrength -= 1;
+    
+    // Price momentum
+    const priceChange = (lastPrice - prices[prices.length - 2]) / prices[prices.length - 2];
+    trendStrength += priceChange * 10;
+    
+    // Calculate prediction
+    const prediction = lastPrice * (1 + trendStrength * 0.01);
+    
+    // Determine confidence
+    let confidence = 'Medium';
+    if (Math.abs(trendStrength) > 3) confidence = 'High';
+    else if (Math.abs(trendStrength) < 1) confidence = 'Low';
+    
+    return {
+        prediction,
+        confidence,
+        trend: trendStrength > 0 ? 'Bullish' : trendStrength < 0 ? 'Bearish' : 'Neutral'
+    };
+}
+
+// --- Freeform Line Drawing ---
+// Add a new tool for freeform line drawing
+let drawing = false;
+let drawStart = null;
+function handleChartMouseDown(event) {
+    if (activeAnnotationTool !== 'draw' || !currentChart) return;
+    drawing = true;
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const xValue = currentChart.scales.x.getValueForPixel(x);
+    const yValue = currentChart.scales.y.getValueForPixel(y);
+    drawStart = { x: xValue, y: yValue };
+}
+function handleChartMouseUp(event) {
+    if (!drawing || activeAnnotationTool !== 'draw' || !currentChart) return;
+    drawing = false;
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const xValue = currentChart.scales.x.getValueForPixel(x);
+    const yValue = currentChart.scales.y.getValueForPixel(y);
+    if (drawStart) {
+        addFreeformLine(drawStart, { x: xValue, y: yValue });
+        drawStart = null;
+    }
+}
+function handleChartMouseMove(event) {
+    // Optionally, show a preview while drawing
+}
+function addFreeformLine(start, end) {
+    const id = `fline-${Date.now()}`;
+    annotations[id] = {
+        type: 'line',
+        xMin: start.x,
+        xMax: end.x,
+        yMin: start.y,
+        yMax: end.y,
+        borderColor: '#fbbf24',
+        borderWidth: 2,
+        borderDash: [2, 2],
+        label: {
+            content: 'Custom',
+            enabled: false
+        }
+    };
+    updateAnnotations();
+}
